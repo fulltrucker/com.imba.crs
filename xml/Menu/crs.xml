@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<menu>
+  <item>
+    <path>civicrm/admin/contribute/sharing</path>
+    <page_callback>CRM_Crs_Form_RevenueSharing</page_callback>
+    <title>RevenueSharing</title>
+    <access_arguments>access CiviCRM</access_arguments>
+  </item>
+</menu>
