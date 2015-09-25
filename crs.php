@@ -299,7 +299,7 @@ function crs_civicrm_xmlMenu(&$files) {
  */
 function crs_civicrm_install() {
 
-  CRM_Core_DAO::executeQuery("CREATE TABLE IF NOT EXISTS `civicrm_contribution_page_revenue_sharing` (
+  CRM_Core_DAO::executeQuery("CREATE TABLE IF NOT EXISTS `imba_contribution_page_revenue_sharing` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `contribution_page_id` int(10) unsigned NOT NULL,
   `region_mode` tinyint(3) unsigned NOT NULL DEFAULT '0',
@@ -325,7 +325,7 @@ function crs_civicrm_install() {
  */
 function crs_civicrm_uninstall() {
 
-  CRM_Core_DAO::executeQuery("DROP TABLE `civicrm_contribution_page_revenue_sharing`");
+  CRM_Core_DAO::executeQuery("DROP TABLE `imba_contribution_page_revenue_sharing`");
 
   _crs_civix_civicrm_uninstall();
 }

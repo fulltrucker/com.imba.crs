@@ -9,7 +9,7 @@ class CRM_Crs_DAO_RevenueSharing extends CRM_Core_DAO
    *
    * @var string
    */
-  static $_tableName = 'civicrm_contribution_page_revenue_sharing';
+  static $_tableName = 'imba_contribution_page_revenue_sharing';
   /**
    * static instance to hold the field values
    *
