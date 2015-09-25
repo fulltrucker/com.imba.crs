@@ -224,7 +224,7 @@
   {include file="CRM/UF/Form/Block.tpl" fields=$customPre}
   </div>
 
-  {if $form.region_76}
+  {if $form.region_contact_id}
     <fieldset class="crm-group">
       <legend>Regional Support</legend>
       <div class="crm-section">
@@ -232,10 +232,10 @@
         <div class="content">Some message goes here.</div>
         <div class="clear"></div>
         <div class="label">
-          {$form.region_76.label}
+          {$form.region_contact_id.label}
         </div>
         <div class="content">
-          {$form.region_76.html}
+          {$form.region_contact_id.html}
         </div>
       </div>
       <div class="clear"></div>
@@ -244,14 +244,12 @@
       <script type="text/javascript">
         crs = {
           postal_code: null,
-          region_76: null,
-          region_76_s2 : null,
+          region_contact_id: null,
           lookup_table: {/literal}{$lookup_table}{literal},
 
           init: function() {
             this.postal_code = $('input[name^="postal_code"]');
-            this.region_76 = $('#region_76');
-            this.region_76_s2 = $('#s2id_region_76 .select2-chosen');
+            this.region_contact_id = CRM.$('#region_contact_id');
             this.postal_code.blur(function() { crs.postal_blur(); });
             this.postal_blur();
           },
@@ -261,17 +259,15 @@
               for(i = 0; i < this.lookup_table.length; i++) {
                 for(j = 0; j < this.lookup_table[i].codes.length; j++) {
                   if (this.lookup_table[i].codes[j] == code)
-                    return this.lookup_table[i].name;
+                    return this.lookup_table[i].id;
                 }
               }
             }
-            return 'none';
+            return 275824;  // No Region
           },
           postal_blur: function() {
             var val = this.find_region(this.postal_code.val().substr(0,5));
-            this.region_76.val(val);
-            this.region_76_s2.html(val);
-            this.region_76_s2.parent().removeClass('select2-default');
+            this.region_contact_id.select2('val', val);
           }
         }
         CRM.$(function($) {

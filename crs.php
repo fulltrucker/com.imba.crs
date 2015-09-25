@@ -11,8 +11,6 @@ define('CRS_REGION_POSTAL', 4);
 define('CRS_CHAPTER_NONE', 0);
 define('CRS_CHAPTER_SELECTED', 1);
 
-define('CRS_GROUP_ID', 11);
-
 /*
   The following helper functions facilitate the conversion of the current
   alphanumeric custom fields into contact references, and back.
@@ -23,6 +21,7 @@ define('CRS_GROUP_ID', 11);
   is fully deprecated.
 */
 
+// this one must be kept
 function crs_contact_to_name($id, $default = '') {
     $name = $default;
     
@@ -37,7 +36,6 @@ function crs_contact_to_name($id, $default = '') {
     }
     return $name;
 }
-
 function crs_chapter_name_to_contact($name) {
   if (!empty($name) && !is_numeric($name)) {
     $api = new civicrm_api3();
@@ -117,34 +115,38 @@ function crs_civicrm_buildForm($formName, &$form) {
       CRM_Core_DAO::storeValues($dao, $settings);
 
       if ($settings['region_mode'] == CRS_REGION_USER) {
-        $detail = CRM_Core_BAO_CustomGroup::getGroupDetail(CRS_GROUP_ID);
-        $groupTree = CRM_Core_BAO_CustomGroup::formatGroupTree($detail, TRUE, $form);
-
-        foreach ($groupTree[CRS_GROUP_ID]['fields'] as &$field) {
-          if ($field['column_name'] == 'region_76')
-            CRM_Core_BAO_CustomField::addQuickFormElement($form, $field['column_name'], $field['id'], FALSE, CRM_Utils_Array::value('is_required', $field));
-        }
 
         if ($formName == 'CRM_Contribute_Form_Contribution_Main') {
+
+          $form->addEntityRef('region_contact_id', 'Region', array(
+            'api' => array(
+              'params' => array('contact_sub_type' => 'Region'),
+            ),
+            'select' => array('minimumInputLength' => 0)
+          ));
+
           // build zipcode to region lookup table
           $table = array();
           
           $dao = CRM_Core_DAO::executeQuery('SELECT postal_code, region_contact_id FROM civicrm_regionfields_data');
           while ($dao->fetch()) {
-            if ($dao->region_contact_id == 275824)  // i.e. "No Region"
-              continue;
             if (empty($table[$dao->region_contact_id])) {
               $table[$dao->region_contact_id] = array(
-                'name' => crs_contact_to_name($dao->region_contact_id),
+                'id' => $dao->region_contact_id,
                 'codes' => array()
               );
             }
             $table[$dao->region_contact_id]['codes'][] = $dao->postal_code;
           }
           $form->assign('lookup_table', json_encode(array_values($table)));
+
+          if (!empty($_SESSION['crs_fields']))
+            $form->setDefaults(array('region_contact_id' => $_SESSION['crs_fields']['region_contact_id']));
         }
-        else
-          $form->setDefaults(array('region_76' => $_SESSION['crs_fields']['region_76']));
+        else {
+          $form->add('text', 'region_contact_id', 'Region');
+          $form->setDefaults(array('region_contact_id' => crs_contact_to_name($_SESSION['crs_fields']['region_contact_id'])));
+        }
       }
     }
   }
@@ -152,8 +154,18 @@ function crs_civicrm_buildForm($formName, &$form) {
 
 function crs_civicrm_validateForm($formName, &$fields, &$files, &$form, &$errors) {
 
-  if ($formName == 'CRM_Contribute_Form_Contribution_Main')
+  if ($formName == 'CRM_Contribute_Form_Contribution_Main') {
     $_SESSION['crs_fields'] = $fields;
+
+    // the following selects the latest contribution made for this page and calls the post hook on it
+    // allows testing without creating any new contributions, since that fails on my local server
+    $api = new civicrm_api3();
+
+    $api->Contribution->GetSingle(array('contribution_page_id' => $form->_id, 'options' => array('limit' => 1, 'sort' => 'receive_date DESC')));
+    watchdog('crs', print_r($api->result, true));
+
+    crs_civicrm_post('create', 'Contribution', $api->result->id, $api->result);
+  }
 
   return true;
 }
@@ -165,7 +177,7 @@ function crs_civicrm_validateForm($formName, &$fields, &$files, &$form, &$errors
  */
 function crs_civicrm_post($op, $objectName, $objectId, &$objectRef) {
 
-  if (($op == 'create') && ($objectName == 'Contribution') && !empty($GLOBALS['crs_fields'])) {
+  if (($op == 'create') && ($objectName == 'Contribution') && !empty($_SESSION['crs_fields'])) {
 
     // we only care about contributions made from a contribution page
     if (!$objectRef->contribution_page_id)
@@ -177,8 +189,6 @@ function crs_civicrm_post($op, $objectName, $objectId, &$objectRef) {
       'chapter_mode' => CRS_CHAPTER_SELECTED,
       'region_contact_id' => null,
       'chapter_contact_id' => null,
-      'region_76' => 'none',
-      'chapter_77' => 'Unassigned'
     );
 
     // get revenue sharing settings for the contribution page
@@ -188,11 +198,9 @@ function crs_civicrm_post($op, $objectName, $objectId, &$objectRef) {
 
     if ($dao->id) {
       CRM_Core_DAO::storeValues($dao, $settings);
-      $settings['region_76'] = crs_contact_to_name($settings['region_contact_id']);
-      $settings['chapter_77'] = crs_contact_to_name($settings['chapter_contact_id']);
     }
     else {
-      // if we don't have revenue sharing settings for this contribution, fallback to civitracker module (simulated)
+      // if we don't have revenue sharing settings for this contribution page, fallback to civitracker module (simulated)
       $form = new fake_civitracker_form($objectRef->contribution_page_id);
       $sharing = $form->civitracker();
       $settings['region_76'] = $sharing['region_76'];
@@ -203,31 +211,34 @@ function crs_civicrm_post($op, $objectName, $objectId, &$objectRef) {
 
     $api = new civicrm_api3();
 
+    // assign region
     switch ($settings['region_mode']) {
 
+      case CRS_REGION_NONE:
+        $region_contact_id = null;
+        break;
+
       case CRS_REGION_SELECTED:
-        $region_76 = $settings['region_76'];
         $region_contact_id = $settings['region_contact_id'];
         break;
 
       case CRS_REGION_USER:
-        $region_76 = $_SESSION['crs_fields']['region_76'];
-        $region_contact_id = crs_region_name_to_contact($region_76);
-        unset($_SESSION['crs_fields']);
+        $region_contact_id = $_SESSION['crs_fields']['region_contact_id'];
         break;
 
       case CRS_REGION_CHAPTER:
         // use the region of the selected chapter
-        $chapter_contact_id = crs_chapter_name_to_contact($settings['chapter_77']);
-        $region_contact_id = $api->CustomValue->GetValue(array('entity_id' => $chapter_contact_id, 'return' => 'region_241'));
-        $region_76 = crs_contact_to_name($region_contact_id);
+        if ($api->Contact->GetValue(array('id' => $settings['chapter_contact_id'], 'return' => 'custom_241')))
+          $region_contact_id = $api->result;
+        else
+          $region_contact_id = null;
         break;
 
       case CRS_REGION_POSTAL:
         // fields postal_code and billing_postal_code get a hyphenated suffix added
         // I don't know where that comes from, so search through the keys to find them
         $primary = $billing = false;
-        foreach($GLOBALS['crs_fields'] as $k => $v) {
+        foreach($_SESSION['crs_fields'] as $k => $v) {
           if (!$primary && strpos($k, 'postal_code') === 0)
             $primary = $v;
           if (!$billing && strpos($k, 'billing_postal_code') === 0)
@@ -240,18 +251,24 @@ function crs_civicrm_post($op, $objectName, $objectId, &$objectRef) {
         // fall back to primary not found
         if (!$region_contact_id)
           $region_contact_id = CRM_Core_DAO::singleValueQuery($query . $primary);
-
-        $region_76 = crs_contact_to_name($region_contact_id);
-
         break;
     }
-    // assign the region to the contribution
-    $api->CustomValue->Create(array('entity_id' => $objectId, 'custom_76' => $region_76)); // REMOVE LATER
-    // $api->CustomValue->Create(array('entity_id' => $objectId, 'custom_xxx' => $region_contact_id));
+    $api->CustomValue->Create(array('entity_id' => $objectId, 'custom_279' => $region_contact_id));
 
     // assign chapter
-    if ($settings['chapter_mode'] == CRS_CHAPTER_SELECTED)
-      $api->CustomValue->Create(array('entity_id' => $objectId, 'custom_77' => $settings['chapter_77']));
+    switch ($settings['chapter_mode']) {
+      
+      case CRS_CHAPTER_NONE:
+        $chapter_contact_id = null;
+        break;
+
+      case CRS_CHAPTER_SELECTED:
+        $chapter_contact_id = $settings['chapter_contact_id'];
+        break;
+    }
+    $api->CustomValue->Create(array('entity_id' => $objectId, 'custom_280' => $chapter_contact_id));
+
+    //unset($_SESSION['crs_fields']);
   }
 }
 

@@ -26,13 +26,17 @@ class CRM_Crs_Form_RevenueSharing extends CRM_Contribute_Form_ContributionPage {
     );
     $this->addRadio('chapter_mode', ts('Chapter'), $values, array(), '<br />', true);
 
-    // create form elements for region_76 and chapter_77
-    $detail = CRM_Core_BAO_CustomGroup::getGroupDetail(CRS_GROUP_ID);
-    $groupTree = CRM_Core_BAO_CustomGroup::formatGroupTree($detail, TRUE, $this);
-
-    foreach ($groupTree[CRS_GROUP_ID]['fields'] as &$field) {
-      CRM_Core_BAO_CustomField::addQuickFormElement($this, $field['column_name'], $field['id'], FALSE, CRM_Utils_Array::value('is_required', $field));
-    }
+    $this->addEntityRef('region_contact_id', 'Region', array(
+      'api' => array(
+        'params' => array('contact_sub_type' => 'Region'),
+      ),
+      'select' => array('minimumInputLength' => 0)
+    ));
+    $this->addEntityRef('chapter_contact_id', 'Chapter', array(
+      'api' => array(
+        'params' => array('group' => '656'),
+      )
+    ));
 
     parent::buildQuickForm();
   }
@@ -50,8 +54,6 @@ class CRM_Crs_Form_RevenueSharing extends CRM_Contribute_Form_ContributionPage {
     $defaults['chapter_mode'] = CRS_CHAPTER_NONE;
     $defaults['region_contact_id'] = null;
     $defaults['chapter_contact_id'] = null;
-    $defaults['region_76'] = 'none';
-    $defaults['chapter_77'] = 'Unassigned';
 
     if (isset($this->_id)) {
       $title = CRM_Core_DAO::getFieldValue('CRM_Contribute_DAO_ContributionPage', $this->_id, 'title');
@@ -61,11 +63,6 @@ class CRM_Crs_Form_RevenueSharing extends CRM_Contribute_Form_ContributionPage {
       $dao->contribution_page_id = $this->_id;
       $dao->find(TRUE);
       CRM_Core_DAO::storeValues($dao, $defaults);
-
-      // BEGIN REMOVE LATER
-      $defaults['region_76'] = crs_contact_to_name($defaults['region_contact_id'], 'none');
-      $defaults['chapter_77'] = crs_contact_to_name($defaults['chapter_contact_id'], 'Unassigned');
-      // END REMOVE LATER
     }
 
     return $defaults;
@@ -75,16 +72,12 @@ class CRM_Crs_Form_RevenueSharing extends CRM_Contribute_Form_ContributionPage {
     // get the submitted form values.
     $params = $this->controller->exportValues($this->_name);
 
-    // make sure submitted region and chapter are contact references, or null if not applicable
+    // set to null if not using selected region/chapter
     if ($params['region_mode'] != CRS_REGION_SELECTED)
       $params['region_contact_id'] = null;
-    else  // REMOVE LATER
-      $params['region_contact_id'] = crs_region_name_to_contact($params['region_76']);
     
     if ($params['chapter_mode'] != CRS_CHAPTER_SELECTED)
       $params['chapter_contact_id'] = null;
-    else  // REMOVE LATER
-      $params['chapter_contact_id'] = crs_chapter_name_to_contact($params['chapter_77']);
 
     // create/update the revenue sharing settings for the contribution page
     $dao = new CRM_Crs_DAO_RevenueSharing();

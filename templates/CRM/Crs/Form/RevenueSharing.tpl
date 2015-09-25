@@ -9,11 +9,11 @@
 	<table class="form-layout-compressed">
 		<tr>
 			<td class="label">{$form.region_mode.label}</td>
-			<td>{$form.region_mode.html}{$form.region_76.html}</td>
+			<td>{$form.region_mode.html}{$form.region_contact_id.html}</td>
 		</tr>
 		<tr>
 			<td class="label">{$form.chapter_mode.label}</td>
-			<td>{$form.chapter_mode.html}{$form.chapter_77.html}</td>
+			<td>{$form.chapter_mode.html}{$form.chapter_contact_id.html}</td>
 		</tr>
 	</table>
 
@@ -24,25 +24,33 @@
 <script type="text/javascript">
 	{literal}
 	CRM.$(function($) {
-
 		CRM.crs = {
 			rblank : $('#CIVICRM_QFID_0_region_mode'),
 			region: $('#CIVICRM_QFID_3_region_mode'),
 			region_label: $('label[for="CIVICRM_QFID_3_region_mode"'),
-			region_76: $('#region_76'),
+			region_contact_id: $('#region_contact_id'),
 			region_use: $('#CIVICRM_QFID_1_region_mode'),
 			cblank:  $('#CIVICRM_QFID_0_chapter_mode'),
 			chapter: $('#CIVICRM_QFID_1_chapter_mode'),
-			chapter_77: $('#chapter_77'),
+			chapter_contact_id: $('#chapter_contact_id'),
 
 			regionSelect: function() {
-				CRM.crs.region_use.prop('checked', true);
+				if (CRM.crs.region_contact_id.val())
+					CRM.crs.region_use.prop('checked', true);
+				else
+					CRM.crs.rblank.prop('checked', true);
 			},
 			chapterSelect: function() {
-				var val = CRM.crs.chapter_77.val();
+				var val = CRM.crs.chapter_contact_id.val();
 
-				CRM.crs.allowSelectedChapter((val != 'Unassigned') && (val != 'At Large'));
-				CRM.crs.chapter.prop('checked', true);
+				if (val) {
+					CRM.crs.allowSelectedChapter(true);
+					CRM.crs.chapter.prop('checked', true);
+				}
+				else {
+					CRM.crs.allowSelectedChapter(false);
+					CRM.crs.cblank.prop('checked', true);
+				}
 
 				return false;
 			},
@@ -63,14 +71,14 @@
 		CRM.crs.chapter.click(function() {
 			CRM.crs.chapterSelect();
 		});
-		CRM.crs.region_76.click(function() {
+		CRM.crs.region_contact_id.change(function() {
 			CRM.crs.regionSelect();
 		});
-		CRM.crs.chapter_77.click(function() {
+		CRM.crs.chapter_contact_id.change(function() {
 			CRM.crs.chapterSelect();
 		});
 
-		CRM.crs.allowSelectedChapter(false);
+		CRM.crs.allowSelectedChapter(CRM.crs.chapter.prop('checked'));
 
 	});
 	{/literal}

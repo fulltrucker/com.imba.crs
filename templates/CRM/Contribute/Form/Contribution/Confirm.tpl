@@ -153,14 +153,16 @@
       </fieldset>
     {/if}
 
-    <fieldset class="label-left crm-profile-view">
-        <div class="header-dark">Regional Support</div>
-        <div class="crm-section">
-            <div class="label">{$form.region_76.label}</div>
-            <div class="content">{$form.region_76.html}</div>
-            <div class="clear"></div>
-        </div>
-    </fieldset>
+    {if $form.region_contact_id}
+        <fieldset class="label-left crm-profile-view">
+            <div class="header-dark">Regional Support</div>
+            <div class="crm-section">
+                <div class="label">{$form.region_contact_id.label}</div>
+                <div class="content">{$form.region_contact_id.html}</div>
+                <div class="clear"></div>
+            </div>
+        </fieldset>
+    {/if}
 
     {if $pcpBlock}
     <div class="crm-group pcp_display-group">
