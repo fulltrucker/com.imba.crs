@@ -2,14 +2,14 @@
 
 require_once 'crs.civix.php';
 
-define('CRS_REGION_NONE', 0);
-define('CRS_REGION_SELECTED', 1);
-define('CRS_REGION_USER', 2);
-define('CRS_REGION_CHAPTER', 3);
-define('CRS_REGION_POSTAL', 4);
+define('CRS_REGION_NONE', 0);       // leave blank/null
+define('CRS_REGION_SELECTED', 1);   // use the selected region
+define('CRS_REGION_USER', 2);       // let the user choose
+define('CRS_REGION_CHAPTER', 3);    // use the region of the selected chapter
+define('CRS_REGION_POSTAL', 4);     // lookup the region using postal code
 
-define('CRS_CHAPTER_NONE', 0);
-define('CRS_CHAPTER_SELECTED', 1);
+define('CRS_CHAPTER_NONE', 0);      // leave blank/null
+define('CRS_CHAPTER_SELECTED', 1);  // use the selected chapter
 
 /*
   The following helper functions facilitate the conversion of the current
@@ -38,6 +38,7 @@ function crs_contact_to_name($id, $default = '') {
 }
 function crs_chapter_name_to_contact($name) {
   if (!empty($name) && !is_numeric($name)) {
+
     $api = new civicrm_api3();
     if ($i = strpos($name, '('))
       $name = substr($name, 0, $i);
@@ -49,6 +50,7 @@ function crs_chapter_name_to_contact($name) {
 }
 function crs_region_name_to_contact($name) {
   if (!empty($name) && !is_numeric($name)) {
+
     $api = new civicrm_api3();
     $api->Contact->GetValue(array('contact_sub_type' => 'Region',
                   'organization_name' => trim($name), 'return' => 'id'));
@@ -169,6 +171,15 @@ function crs_civicrm_validateForm($formName, &$fields, &$files, &$form, &$errors
 
   return true;
 }
+/*
+function crs_civicrm_pre($op, $objectName, $id, $params) {
+  watchdog('crs', "pre $op $objectName ($id)", $params);
+}
+
+function crs_civicrm_custom($op, $groupID, $entityID, $params) {
+  watchdog('crs', "$op group $groupID, entity $entityID", $params);
+}
+*/
 
 /**
  * Implements hook_civicrm_post().
@@ -176,6 +187,8 @@ function crs_civicrm_validateForm($formName, &$fields, &$files, &$form, &$errors
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_post
  */
 function crs_civicrm_post($op, $objectName, $objectId, &$objectRef) {
+
+  //watchdog('crs', "post $op $objectName ($objectId)", $objectRef);
 
   if (($op == 'create') && ($objectName == 'Contribution') && !empty($_SESSION['crs_fields'])) {
 
@@ -299,21 +312,60 @@ function crs_civicrm_xmlMenu(&$files) {
  */
 function crs_civicrm_install() {
 
-  CRM_Core_DAO::executeQuery("CREATE TABLE IF NOT EXISTS `imba_contribution_page_revenue_sharing` (
-  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
-  `contribution_page_id` int(10) unsigned NOT NULL,
-  `region_mode` tinyint(3) unsigned NOT NULL DEFAULT '0',
-  `chapter_mode` tinyint(3) unsigned NOT NULL DEFAULT '0',
-  `region_contact_id` int(10) unsigned DEFAULT NULL,
-  `chapter_contact_id` int(10) unsigned DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `contribution_page_id` (`contribution_page_id`),
-  KEY `region_xxx` (`region_contact_id`),
-  KEY `chapter_yyy` (`chapter_contact_id`),
-  CONSTRAINT `civicrm_contribution_page_revenue_sharing_ibfk_1` FOREIGN KEY (`region_contact_id`) REFERENCES `civicrm_contact` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `civicrm_contribution_page_revenue_sharing_ibfk_2` FOREIGN KEY (`chapter_contact_id`) REFERENCES `civicrm_contact` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `civicrm_contribution_page_revenue_sharing_ibfk_3` FOREIGN KEY (`contribution_page_id`) REFERENCES `civicrm_contribution_page` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;");
+  CRM_Core_DAO::executeQuery("CREATE TABLE IF NOT EXISTS `contribution_page_revenue_sharing` (
+    `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+    `contribution_page_id` int(10) unsigned NOT NULL,
+    `region_mode` tinyint(3) unsigned NOT NULL DEFAULT '0',
+    `chapter_mode` tinyint(3) unsigned NOT NULL DEFAULT '0',
+    `region_contact_id` int(10) unsigned DEFAULT NULL,
+    `chapter_contact_id` int(10) unsigned DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `contribution_page_id` (`contribution_page_id`),
+    KEY `region_xxx` (`region_contact_id`),
+    KEY `chapter_yyy` (`chapter_contact_id`),
+    CONSTRAINT `civicrm_contribution_page_revenue_sharing_ibfk_1` FOREIGN KEY (`region_contact_id`) REFERENCES `civicrm_contact` (`id`) ON DELETE SET NULL,
+    CONSTRAINT `civicrm_contribution_page_revenue_sharing_ibfk_2` FOREIGN KEY (`chapter_contact_id`) REFERENCES `civicrm_contact` (`id`) ON DELETE SET NULL,
+    CONSTRAINT `civicrm_contribution_page_revenue_sharing_ibfk_3` FOREIGN KEY (`contribution_page_id`) REFERENCES `civicrm_contribution_page` (`id`) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8;");
+
+  $chapters = array();
+  $dao = CRM_Core_DAO::executeQuery("SELECT m.contact_id AS id,
+                                    c.organization_name, c.nick_name
+                                    FROM civicrm_membership m
+                                    INNER JOIN civicrm_contact c ON m.contact_id = c.id
+                                    WHERE m.membership_type_id IN (7,9,11) AND m.status_id IN (3,2,1)
+                                    ORDER BY c.organization_name asc");
+  while ($dao->fetch()) {
+    $name = $dao->organization_name;
+    if ($dao->nick_name)
+      $name .= "({$dao->nick_name})";
+    $name = str_replace(' ', '', strtolower($name));
+    $chapters[$name] = $dao->id;
+  }
+
+  $regions = array();
+  $dao = CRM_Core_DAO::executeQuery("SELECT id,organization_name FROM civicrm_contact WHERE contact_sub_type='Region' ORDER BY organization_name ASC");
+  while ($dao->fetch()){
+    $name = str_replace(' ', '', strtolower($dao->organization_name));
+    $regions[$name] = $dao->id;
+  }
+
+  $query = 'INSERT INTO contribution_page_revenue_sharing
+            (contribution_page_id,region_mode,chapter_mode,region_contact_id,chapter_contact_id)
+            VALUES ';
+
+  $dao = CRM_Core_DAO::executeQuery('SELECT * FROM contribution_page_region');
+  while ($dao->fetch()) {
+    $id = $dao->contribution_page_id;
+    $name = str_replace(' ', '', strtolower($dao->region));
+    $region = !empty($regions[$name]) ? $regions[$name] : 'null';
+    $rm = ($region != 'null') ? 1 : 4;
+    $name = str_replace(' ', '', strtolower($dao->chapter));
+    $chapter = !empty($chapters[$name]) ? $chapters[$name] : 'null';
+    $cm = ($chapter != 'null') ? 1 : 0;
+    $query .= "($id,$rm,$cm,$region,$chapter),";
+  }
+  CRM_Core_DAO::executeQuery(substr($query, 0, -1));
 
   _crs_civix_civicrm_install();
 }
@@ -325,7 +377,7 @@ function crs_civicrm_install() {
  */
 function crs_civicrm_uninstall() {
 
-  CRM_Core_DAO::executeQuery("DROP TABLE `imba_contribution_page_revenue_sharing`");
+  CRM_Core_DAO::executeQuery("DROP TABLE `contribution_page_revenue_sharing`");
 
   _crs_civix_civicrm_uninstall();
 }

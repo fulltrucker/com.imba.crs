@@ -94,7 +94,7 @@ class CRM_Crs_Form_RevenueSharing extends CRM_Contribute_Form_ContributionPage {
       $nulls[] = 'chapter_contact_id=NULL';
 
     if (!empty($nulls))
-      CRM_Core_DAO::executeQuery('UPDATE imba_contribution_page_revenue_sharing SET ' .
+      CRM_Core_DAO::executeQuery('UPDATE contribution_page_revenue_sharing SET ' .
                                   implode(',', $nulls) . ' WHERE contribution_page_id=' . $this->_id);
 
     parent::endPostProcess();
