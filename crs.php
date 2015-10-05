@@ -369,7 +369,7 @@ function crs_civicrm_install() {
     $names = $dummy->civitracker();
     $name = str_replace(' ', '', strtolower($names['region_76']));
     $region = !empty($regions[$name]) ? $regions[$name] : 'null';
-    $rm = ($region != 'null') ? 1 : 4;
+    $rm = ($region != 'null') ? 1 : 0;
     $name = str_replace(' ', '', strtolower($names['chapter_77']));
     $chapter = !empty($chapters[$name]) ? $chapters[$name] : 'null';
     $cm = ($chapter != 'null') ? 1 : 0;
