@@ -72,7 +72,7 @@ function crs_region_name_to_contact($name) {
 class fake_civitracker_form {
   private $_id;
 
-  function __construct($contribution_page_id) {
+  function __construct($contribution_page_id = 0) {
     $this->_id = $contribution_page_id;
   }
 
@@ -84,10 +84,13 @@ class fake_civitracker_form {
 
   function assign() {}
 
+  function setID($contribution_page_id) {
+    $this->_id = $contribution_page_id;
+  }
+
   // this function simulates a call to the civitracker module and
   // returns the region and chapter assigned to the $_GET variables
   function civitracker() {
-    require_once($_SERVER['DOCUMENT_ROOT'] . '/' . drupal_get_path('module', 'civitracker') . '/civitracker.module');
 
     civitracker_civicrm_buildForm('CRM_Contribute_Form_Contribution_Main', $this);
 
@@ -266,7 +269,7 @@ function crs_civicrm_post($op, $objectName, $objectId, &$objectRef) {
           $region_contact_id = CRM_Core_DAO::singleValueQuery($query . $primary);
         break;
     }
-    $api->CustomValue->Create(array('entity_id' => $objectId, 'custom_279' => $region_contact_id));
+    $api->CustomValue->Create(array('entity_id' => $objectId, 'custom_277' => $region_contact_id));
 
     // assign chapter
     switch ($settings['chapter_mode']) {
@@ -279,7 +282,7 @@ function crs_civicrm_post($op, $objectName, $objectId, &$objectRef) {
         $chapter_contact_id = $settings['chapter_contact_id'];
         break;
     }
-    $api->CustomValue->Create(array('entity_id' => $objectId, 'custom_280' => $chapter_contact_id));
+    $api->CustomValue->Create(array('entity_id' => $objectId, 'custom_278' => $chapter_contact_id));
 
     //unset($_SESSION['crs_fields']);
   }
@@ -311,6 +314,11 @@ function crs_civicrm_xmlMenu(&$files) {
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_install
  */
 function crs_civicrm_install() {
+
+  if (!function_exists('civitracker_civicrm_buildForm'))
+    require_once($_SERVER['DOCUMENT_ROOT'] . '/' . drupal_get_path('module', 'civitracker') . '/civitracker.module');
+
+  $dummy = new fake_civitracker_form();
 
   CRM_Core_DAO::executeQuery("CREATE TABLE IF NOT EXISTS `contribution_page_revenue_sharing` (
     `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
@@ -354,13 +362,15 @@ function crs_civicrm_install() {
             (contribution_page_id,region_mode,chapter_mode,region_contact_id,chapter_contact_id)
             VALUES ';
 
-  $dao = CRM_Core_DAO::executeQuery('SELECT * FROM contribution_page_region');
+  $dao = CRM_Core_DAO::executeQuery('SELECT id as contribution_page_id FROM civicrm_contribution_page');
   while ($dao->fetch()) {
     $id = $dao->contribution_page_id;
-    $name = str_replace(' ', '', strtolower($dao->region));
+    $dummy->setID($id);
+    $names = $dummy->civitracker();
+    $name = str_replace(' ', '', strtolower($names['region_76']));
     $region = !empty($regions[$name]) ? $regions[$name] : 'null';
     $rm = ($region != 'null') ? 1 : 4;
-    $name = str_replace(' ', '', strtolower($dao->chapter));
+    $name = str_replace(' ', '', strtolower($names['chapter_77']));
     $chapter = !empty($chapters[$name]) ? $chapters[$name] : 'null';
     $cm = ($chapter != 'null') ? 1 : 0;
     $query .= "($id,$rm,$cm,$region,$chapter),";
