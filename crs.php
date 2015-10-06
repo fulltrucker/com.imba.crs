@@ -11,6 +11,8 @@ define('CRS_REGION_POSTAL', 4);     // lookup the region using postal code
 define('CRS_CHAPTER_NONE', 0);      // leave blank/null
 define('CRS_CHAPTER_SELECTED', 1);  // use the selected chapter
 
+define('CRS_DEFAULT_REGION', 275824);
+
 /*
   The following helper functions facilitate the conversion of the current
   alphanumeric custom fields into contact references, and back.
@@ -61,13 +63,8 @@ function crs_region_name_to_contact($name) {
 
 /*
   This is a dummy form class that will get passed to the
-  civitracker moudule. That module will need to be disabled, callling
-  of the moudle will be simulated and then the region and chapter
-  settings will be pulled from $_GET variables.
-  This will only be used for contribution pages that don't yet have
-  revenue sharing settings defined.
-  This can be removed once all contribution pages have defined their
-  revenue sharing settings.
+  civitracker moudule in order to pre-populate the table
+  contribution_page_revenue_sharing this extension creates.
 */
 class fake_civitracker_form {
   private $_id;
@@ -123,12 +120,13 @@ function crs_civicrm_buildForm($formName, &$form) {
 
         if ($formName == 'CRM_Contribute_Form_Contribution_Main') {
 
-          $form->addEntityRef('region_contact_id', 'Region', array(
-            'api' => array(
-              'params' => array('contact_sub_type' => 'Region'),
-            ),
-            'select' => array('minimumInputLength' => 0)
-          ));
+          $options = array();
+          $dao = CRM_Core_DAO::executeQuery("SELECT id,organization_name FROM civicrm_contact WHERE contact_sub_type='Region' ORDER BY organization_name ASC");
+          while ($dao->fetch()) {
+            $options[$dao->id] = $dao->organization_name;
+          }
+          $form->addSelect('region_contact_id', array('label' => 'Region', 'options' => $options), true);
+          $form->setDefaults(array('region_contact_id' => CRS_DEFAULT_REGION));
 
           // build zipcode to region lookup table
           $table = array();
@@ -162,12 +160,14 @@ function crs_civicrm_validateForm($formName, &$fields, &$files, &$form, &$errors
   if ($formName == 'CRM_Contribute_Form_Contribution_Main') {
     $_SESSION['crs_fields'] = $fields;
 
-    // the following selects the latest contribution made for this page and calls the post hook on it
-    // allows testing without creating any new contributions, since that fails on my local server
-    $api = new civicrm_api3();
+    if (isset($_SERVER['USER']) && ($_SERVER['USER'] == 'davidrjr')) {
+      // the following selects the latest contribution made for this page and calls the post hook on it
+      // allows testing without creating any new contributions, since that fails on my local server
+      $api = new civicrm_api3();
 
-    $api->Contribution->GetSingle(array('contribution_page_id' => $form->_id, 'options' => array('limit' => 1, 'sort' => 'receive_date DESC')));
-    watchdog('crs', print_r($api->result, true));
+      $api->Contribution->GetSingle(array('contribution_page_id' => $form->_id, 'options' => array('limit' => 1, 'sort' => 'receive_date DESC')));
+      watchdog('crs', print_r($api->result, true));
+    }
 
     crs_civicrm_post('create', 'Contribution', $api->result->id, $api->result);
   }
@@ -199,31 +199,22 @@ function crs_civicrm_post($op, $objectName, $objectId, &$objectRef) {
     if (!$objectRef->contribution_page_id)
       return;
 
-    // default settings
-    $settings = array(
-      'region_mode' => CRS_REGION_SELECTED,
-      'chapter_mode' => CRS_CHAPTER_SELECTED,
-      'region_contact_id' => null,
-      'chapter_contact_id' => null,
-    );
-
     // get revenue sharing settings for the contribution page
     $dao = new CRM_Crs_DAO_RevenueSharing();
     $dao->contribution_page_id = $objectRef->contribution_page_id;
     $dao->find(TRUE);
 
     if ($dao->id) {
+      $settings = array();
       CRM_Core_DAO::storeValues($dao, $settings);
     }
-    else {
-      // if we don't have revenue sharing settings for this contribution page, fallback to civitracker module (simulated)
-      $form = new fake_civitracker_form($objectRef->contribution_page_id);
-      $sharing = $form->civitracker();
-      $settings['region_76'] = $sharing['region_76'];
-      $settings['chapter_77'] = $sharing['chapter_77'];
-      $settings['region_contact_id'] = crs_region_name_to_contact($settings['region_76']);
-      $settings['chapter_contact_id'] = crs_chapter_name_to_contact($settings['chapter_77']);
-    }
+    else
+      $settings = array(
+        'region_mode' => CRS_REGION_NONE,
+        'chapter_mode' => CRS_CHAPTER_NONE,
+        'region_contact_id' => null,
+        'chapter_contact_id' => null,
+      );
 
     $api = new civicrm_api3();
 
@@ -284,7 +275,10 @@ function crs_civicrm_post($op, $objectName, $objectId, &$objectRef) {
     }
     $api->CustomValue->Create(array('entity_id' => $objectId, 'custom_278' => $chapter_contact_id));
 
-    //unset($_SESSION['crs_fields']);
+    if (isset($_SERVER['USER']) && ($_SERVER['USER'] == 'davidrjr'))
+      return;
+
+    unset($_SESSION['crs_fields']);
   }
 }
 
@@ -346,15 +340,14 @@ function crs_civicrm_install() {
   while ($dao->fetch()) {
     $name = $dao->organization_name;
     if ($dao->nick_name)
-      $name .= "({$dao->nick_name})";
-    $name = str_replace(' ', '', strtolower($name));
+      $name .= " ({$dao->nick_name})";
     $chapters[$name] = $dao->id;
   }
 
   $regions = array();
   $dao = CRM_Core_DAO::executeQuery("SELECT id,organization_name FROM civicrm_contact WHERE contact_sub_type='Region' ORDER BY organization_name ASC");
   while ($dao->fetch()){
-    $name = str_replace(' ', '', strtolower($dao->organization_name));
+    $name = $dao->organization_name;
     $regions[$name] = $dao->id;
   }
 
@@ -367,15 +360,23 @@ function crs_civicrm_install() {
     $id = $dao->contribution_page_id;
     $dummy->setID($id);
     $names = $dummy->civitracker();
-    $name = str_replace(' ', '', strtolower($names['region_76']));
-    $region = !empty($regions[$name]) ? $regions[$name] : 'null';
-    $rm = ($region != 'null') ? 1 : 0;
-    $name = str_replace(' ', '', strtolower($names['chapter_77']));
-    $chapter = !empty($chapters[$name]) ? $chapters[$name] : 'null';
-    $cm = ($chapter != 'null') ? 1 : 0;
+    $region = !empty($regions[$names['region_76']]) ? $regions[$names['region_76']] : 'null';
+    $rm = ($region != 'null') ? CRS_REGION_SELECTED : CRS_REGION_POSTAL;
+    $chapter = !empty($chapters[$names['chapter_77']]) ? $chapters[$names['chapter_77']] : 'null';
+    $cm = ($chapter != 'null') ? CRS_CHAPTER_SELECTED : CRS_CHAPTER_NONE;
     $query .= "($id,$rm,$cm,$region,$chapter),";
   }
   CRM_Core_DAO::executeQuery(substr($query, 0, -1));
+
+  foreach($regions as $name => $id) {
+    $name = CRM_Core_DAO::escapeString($name);
+    CRM_Core_DAO::executeQuery("UPDATE civicrm_value_revenue_sharing_11 SET contribution_region_277='$id' WHERE region_76='$name'");
+  }
+
+  foreach($chapters as $name => $id) {
+    $name = CRM_Core_DAO::escapeString($name);
+    CRM_Core_DAO::executeQuery("UPDATE civicrm_value_revenue_sharing_11 SET contribution_chapter_278='$id' WHERE chapter_77='$name'");
+  }
 
   _crs_civix_civicrm_install();
 }
