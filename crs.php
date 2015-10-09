@@ -160,16 +160,15 @@ function crs_civicrm_validateForm($formName, &$fields, &$files, &$form, &$errors
   if ($formName == 'CRM_Contribute_Form_Contribution_Main') {
     $_SESSION['crs_fields'] = $fields;
 
-    if (isset($_SERVER['USER']) && ($_SERVER['USER'] == 'davidrjr')) {
+    if (isset($_SERVER['SERVER_ADDR']) && ($_SERVER['SERVER_ADDR'] == '127.0.0.1')) {
       // the following selects the latest contribution made for this page and calls the post hook on it
       // allows testing without creating any new contributions, since that fails on my local server
       $api = new civicrm_api3();
 
       $api->Contribution->GetSingle(array('contribution_page_id' => $form->_id, 'options' => array('limit' => 1, 'sort' => 'receive_date DESC')));
-      watchdog('crs', print_r($api->result, true));
-    }
 
-    crs_civicrm_post('create', 'Contribution', $api->result->id, $api->result);
+      crs_civicrm_post('create', 'Contribution', $api->result->id, $api->result);
+    }
   }
 
   return true;
@@ -193,92 +192,125 @@ function crs_civicrm_post($op, $objectName, $objectId, &$objectRef) {
 
   //watchdog('crs', "post $op $objectName ($objectId)", $objectRef);
 
-  if (($op == 'create') && ($objectName == 'Contribution') && !empty($_SESSION['crs_fields'])) {
+  if (($op == 'create') && ($objectName == 'Contribution')) {
 
-    // we only care about contributions made from a contribution page
-    if (!$objectRef->contribution_page_id)
-      return;
+    $chapter_contact_id = false;
 
-    // get revenue sharing settings for the contribution page
-    $dao = new CRM_Crs_DAO_RevenueSharing();
-    $dao->contribution_page_id = $objectRef->contribution_page_id;
-    $dao->find(TRUE);
+    // contributions made from a contribution page
+    if (!empty($_SESSION['crs_fields']) && $objectRef->contribution_page_id) {
 
-    if ($dao->id) {
-      $settings = array();
-      CRM_Core_DAO::storeValues($dao, $settings);
+      // get revenue sharing settings for the contribution page
+      $dao = new CRM_Crs_DAO_RevenueSharing();
+      $dao->contribution_page_id = $objectRef->contribution_page_id;
+      $dao->find(TRUE);
+
+      if ($dao->id) {
+        $settings = array();
+        CRM_Core_DAO::storeValues($dao, $settings);
+      }
+      else
+        $settings = array(
+          'region_mode' => CRS_REGION_NONE,
+          'chapter_mode' => CRS_CHAPTER_NONE,
+          'region_contact_id' => null,
+          'chapter_contact_id' => null,
+        );
+
+      $api = new civicrm_api3();
+
+      // assign region
+      switch ($settings['region_mode']) {
+
+        case CRS_REGION_NONE:
+          $region_contact_id = null;
+          break;
+
+        case CRS_REGION_SELECTED:
+          $region_contact_id = $settings['region_contact_id'];
+          break;
+
+        case CRS_REGION_USER:
+          $region_contact_id = $_SESSION['crs_fields']['region_contact_id'];
+          break;
+
+        case CRS_REGION_CHAPTER:
+          // use the region of the selected chapter
+          if ($api->Contact->GetValue(array('id' => $settings['chapter_contact_id'], 'return' => 'custom_241')))
+            $region_contact_id = $api->result;
+          else
+            $region_contact_id = null;
+          break;
+
+        case CRS_REGION_POSTAL:
+          // fields postal_code and billing_postal_code get a hyphenated suffix added
+          // I don't know where that comes from, so search through the keys to find them
+          $primary = $billing = false;
+          foreach($_SESSION['crs_fields'] as $k => $v) {
+            if (!$primary && strpos($k, 'postal_code') === 0)
+              $primary = $v;
+            if (!$billing && strpos($k, 'billing_postal_code') === 0)
+              $billing = $v;
+          }
+          $query = 'SELECT region_contact_id FROM civicrm_regionfields_data WHERE postal_code=';
+          // use billing postal code first
+          if ($billing)
+            $region_contact_id = CRM_Core_DAO::singleValueQuery($query . $billing);
+          // fall back to primary not found
+          if (!$region_contact_id)
+            $region_contact_id = CRM_Core_DAO::singleValueQuery($query . $primary);
+          break;
+      }
+      $api->CustomValue->Create(array('entity_id' => $objectId, 'custom_277' => $region_contact_id));
+
+      // assign chapter
+      switch ($settings['chapter_mode']) {
+        
+        case CRS_CHAPTER_NONE:
+          $chapter_contact_id = null;
+          break;
+
+        case CRS_CHAPTER_SELECTED:
+          $chapter_contact_id = $settings['chapter_contact_id'];
+          break;
+      }
+      $api->CustomValue->Create(array('entity_id' => $objectId, 'custom_278' => $chapter_contact_id));
+
+      if (!isset($_SERVER['SERVER_ADDR']) || ($_SERVER['SERVER_ADDR'] != '127.0.0.1'))
+        unset($_SESSION['crs_fields']);
     }
-    else
-      $settings = array(
-        'region_mode' => CRS_REGION_NONE,
-        'chapter_mode' => CRS_CHAPTER_NONE,
-        'region_contact_id' => null,
-        'chapter_contact_id' => null,
-      );
+
+    // SET PRIMARY_CHAPTER_240 AND UPDATE CHAPTER_80 IF NEEDED, FOR THE CONTRIBUTOR
 
     $api = new civicrm_api3();
 
-    // assign region
-    switch ($settings['region_mode']) {
+    // if the contribution chapter was not set above, see if it's already assigned
+    if (($chapter_contact_id === false) && !empty($objectRef->custom_278))
+      $chapter_contact_id = $objectRef->custom_278;
 
-      case CRS_REGION_NONE:
-        $region_contact_id = null;
-        break;
-
-      case CRS_REGION_SELECTED:
-        $region_contact_id = $settings['region_contact_id'];
-        break;
-
-      case CRS_REGION_USER:
-        $region_contact_id = $_SESSION['crs_fields']['region_contact_id'];
-        break;
-
-      case CRS_REGION_CHAPTER:
-        // use the region of the selected chapter
-        if ($api->Contact->GetValue(array('id' => $settings['chapter_contact_id'], 'return' => 'custom_241')))
-          $region_contact_id = $api->result;
-        else
-          $region_contact_id = null;
-        break;
-
-      case CRS_REGION_POSTAL:
-        // fields postal_code and billing_postal_code get a hyphenated suffix added
-        // I don't know where that comes from, so search through the keys to find them
-        $primary = $billing = false;
-        foreach($_SESSION['crs_fields'] as $k => $v) {
-          if (!$primary && strpos($k, 'postal_code') === 0)
-            $primary = $v;
-          if (!$billing && strpos($k, 'billing_postal_code') === 0)
-            $billing = $v;
-        }
-        $query = 'SELECT region_contact_id FROM civicrm_regionfields_data WHERE postal_code=';
-        // use billing postal code first
-        if ($billing)
-          $region_contact_id = CRM_Core_DAO::singleValueQuery($query . $billing);
-        // fall back to primary not found
-        if (!$region_contact_id)
-          $region_contact_id = CRM_Core_DAO::singleValueQuery($query . $primary);
-        break;
-    }
-    $api->CustomValue->Create(array('entity_id' => $objectId, 'custom_277' => $region_contact_id));
-
-    // assign chapter
-    switch ($settings['chapter_mode']) {
-      
-      case CRS_CHAPTER_NONE:
-        $chapter_contact_id = null;
-        break;
-
-      case CRS_CHAPTER_SELECTED:
-        $chapter_contact_id = $settings['chapter_contact_id'];
-        break;
-    }
-    $api->CustomValue->Create(array('entity_id' => $objectId, 'custom_278' => $chapter_contact_id));
-
-    if (isset($_SERVER['USER']) && ($_SERVER['USER'] == 'davidrjr'))
+    // if we still dont have a chapter, we're done here
+    if (!$chapter_contact_id)
       return;
 
-    unset($_SESSION['crs_fields']);
+    // now we need to make sure the contribution chapter is actually a chapter, and not a patrol group
+    $api->Contact->GetSingle(array('id' => $chapter_contact_id));
+    if ($api->result->is_error || (array_search('Chapter', $api->result->contact_sub_type) === false))
+      return;
+    $chapter_name = $api->result->organization_name . ($api->result->nick_name ? ' (' . $api->result->nick_name . ')' : '');
+
+    // time to get the contributor's chapter affiliations
+    $api->Contact->GetSingle(array('id' => $objectRef->contact_id, 'return' => 'custom_240,custom_80'));
+    if ($api->result->is_error)
+      return;
+
+    $chapter_80 = array();
+    foreach($api->result->custom_80 as $name)
+      if (strpos($name, '()') === false)  // take out bogus name com.imba.cambr was adding for a while
+        $chapter_80[] = $name;
+    // add the chapter if it's not already in the list
+    if (array_search($chapter_name, $chapter_80) === false)
+      $chapter_80[] = $chapter_name;
+
+    $api->Contact->Create(array('id' => $objectRef->contact_id, 'custom_240' => $chapter_contact_id, 'custom_80' => $chapter_80));
   }
 }
 
