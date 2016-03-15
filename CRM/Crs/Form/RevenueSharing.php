@@ -32,10 +32,32 @@ class CRM_Crs_Form_RevenueSharing extends CRM_Contribute_Form_ContributionPage {
       ),
       'select' => array('minimumInputLength' => 0)
     ));
+    /*
+    $options = array();
+    $dao = CRM_Core_DAO::executeQuery("SELECT m.contact_id AS id,
+                                      c.organization_name, c.nick_name
+                                      FROM civicrm_membership m
+                                      INNER JOIN civicrm_contact c ON m.contact_id = c.id
+                                      WHERE m.membership_type_id IN (7,9,11) AND m.status_id IN (3,2,1)
+                                      ORDER BY c.organization_name asc");
+    while ($dao->fetch()) {
+      $name = $dao->organization_name;
+      if ($dao->nick_name)
+        $name .= " ({$dao->nick_name})";
+      $options[] = array(
+        'id' => $dao->id,
+        'text' => $name
+      );
+    }
+    */
+
     $this->addEntityRef('chapter_contact_id', 'Chapter', array(
       'api' => array(
-        'params' => array('group' => '656'),
-      )
+        'params' => array('group' => CRS_CHAPTER_GROUP_ID),
+      ),
+      /*'select' => array(
+        'data' => $options,
+      )*/
     ));
 
     parent::buildQuickForm();
