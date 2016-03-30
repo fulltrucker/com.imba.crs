@@ -2,14 +2,14 @@
 
 require_once 'CRM/Core/DAO.php';
 require_once 'CRM/Utils/Type.php';
-class CRM_Crs_DAO_RevenueSharing extends CRM_Core_DAO
+class CRM_Crs_DAO_RevenueSharingEvent extends CRM_Core_DAO
 {
   /**
    * static instance to hold the table name
    *
    * @var string
    */
-  static $_tableName = 'contribution_page_revenue_sharing';
+  static $_tableName = 'event_revenue_sharing';
   /**
    * static instance to hold the field values
    *
@@ -55,7 +55,7 @@ class CRM_Crs_DAO_RevenueSharing extends CRM_Core_DAO
    */
   public $id;
 
-  public $contribution_page_id;
+  public $event_id;
 
   public $region_mode;
 
@@ -71,7 +71,7 @@ class CRM_Crs_DAO_RevenueSharing extends CRM_Core_DAO
    */
   function __construct()
   {
-    $this->__table = 'contribution_page_revenue_sharing';
+    $this->__table = 'event_revenue_sharing';
     parent::__construct();
   }
 
@@ -90,10 +90,10 @@ class CRM_Crs_DAO_RevenueSharing extends CRM_Core_DAO
           'title' => ts('Revenue Sharing ID') ,
           'required' => true,
         ) ,
-        'contribution_page_id' => array(
-          'name' => 'contribution_page_id',
+        'event_id' => array(
+          'name' => 'event_id',
           'type' => CRM_Utils_Type::T_INT,
-          'title' => ts('Contribution Page ID') ,
+          'title' => ts('Event ID') ,
           'required' => true,
         ),
         'region_mode' => array(
@@ -135,7 +135,7 @@ class CRM_Crs_DAO_RevenueSharing extends CRM_Core_DAO
     if (!(self::$_fieldKeys)) {
       self::$_fieldKeys = array(
         'id' => 'id',
-        'contribution_page_id' => 'contribution_page_id',
+        'event_id' => 'event_id',
         'region_mode' => 'region_mode',
         'chapter_mode' => 'chapter_mode',
         'region_contact_id' => 'region_contact_id',

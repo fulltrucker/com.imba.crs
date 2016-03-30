@@ -270,7 +270,7 @@
                 }
               }
             }
-            return 275824;  // No Region
+            return {/literal}{$default_region}{literal};  // No Region
           },
           postal_blur: function() {
             var val = this.find_region(this.postal_code.val().substr(0,5));

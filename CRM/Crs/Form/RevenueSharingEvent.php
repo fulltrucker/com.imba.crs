@@ -1,16 +1,13 @@
 <?php
 
-require_once 'CRM/Core/Form.php';
-
 /**
  * Form controller class
  *
  * @see http://wiki.civicrm.org/confluence/display/CRMDOC43/QuickForm+Reference
  */
-class CRM_Crs_Form_RevenueSharing extends CRM_Contribute_Form_ContributionPage {
-
-
+class CRM_Crs_Form_RevenueSharingEvent extends CRM_Event_Form_ManageEvent {
   function buildQuickForm() {
+
     $values = array(
       CRS_REGION_NONE => 'Leave blank / NULL',
       CRS_REGION_USER => 'Let the contributor select',
@@ -18,13 +15,13 @@ class CRM_Crs_Form_RevenueSharing extends CRM_Contribute_Form_ContributionPage {
       CRS_REGION_POSTAL => 'Calculate from contributors\' postal code',
       CRS_REGION_SELECTED => '',
     );
-    $this->addRadio('region_mode', ts('Region'), $values, array(), '<br />', TRUE);
+    $this->addRadio('region_mode', ts('Region'), $values, array(), '<br />', true);
 
     $values = array(
       CRS_CHAPTER_NONE => 'Leave blank / NULL',
       CRS_CHAPTER_SELECTED => '',
     );
-    $this->addRadio('chapter_mode', ts('Chapter'), $values, array(), '<br />', TRUE);
+    $this->addRadio('chapter_mode', ts('Chapter'), $values, array(), '<br />', true);
 
     $this->addEntityRef('region_contact_id', 'Region', array(
       'api' => array(
@@ -57,11 +54,11 @@ class CRM_Crs_Form_RevenueSharing extends CRM_Contribute_Form_ContributionPage {
     $defaults['chapter_contact_id'] = NULL;
 
     if (isset($this->_id)) {
-      $title = CRM_Core_DAO::getFieldValue('CRM_Contribute_DAO_ContributionPage', $this->_id, 'title');
+      $title = CRM_Core_DAO::getFieldValue('CRM_Event_DAO_Event', $this->_id, 'title');
       CRM_Utils_System::setTitle(ts('Revenue Sharing') . " ($title)");
     
-      $dao = new CRM_Crs_DAO_RevenueSharing();
-      $dao->contribution_page_id = $this->_id;
+      $dao = new CRM_Crs_DAO_RevenueSharingEvent();
+      $dao->event_id = $this->_id;
       $dao->find(TRUE);
       CRM_Core_DAO::storeValues($dao, $defaults);
     }
@@ -82,9 +79,9 @@ class CRM_Crs_Form_RevenueSharing extends CRM_Contribute_Form_ContributionPage {
       $params['chapter_contact_id'] = NULL;
     }
 
-    // create/update the revenue sharing settings for the contribution page
-    $dao = new CRM_Crs_DAO_RevenueSharing();
-    $dao->contribution_page_id = $this->_id;
+    // create/update the revenue sharing settings for the event
+    $dao = new CRM_Crs_DAO_RevenueSharingEvent();
+    $dao->event_id = $this->_id;
     $dao->find(TRUE);
     $dao->copyValues($params);
     $dao->save();
@@ -99,8 +96,8 @@ class CRM_Crs_Form_RevenueSharing extends CRM_Contribute_Form_ContributionPage {
     }
 
     if (!empty($nulls)) {
-      CRM_Core_DAO::executeQuery('UPDATE contribution_page_revenue_sharing SET ' .
-                                  implode(',', $nulls) . ' WHERE contribution_page_id=' . $this->_id);
+      CRM_Core_DAO::executeQuery('UPDATE event_revenue_sharing SET ' .
+                                  implode(',', $nulls) . ' WHERE event_id=' . $this->_id);
     }
 
     parent::endPostProcess();

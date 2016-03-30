@@ -3,7 +3,13 @@
   <item>
     <path>civicrm/admin/contribute/sharing</path>
     <page_callback>CRM_Crs_Form_RevenueSharing</page_callback>
-    <title>RevenueSharing</title>
+    <title>Revenue Sharing</title>
+    <access_arguments>access CiviCRM</access_arguments>
+  </item>
+  <item>
+    <path>civicrm/event/manage/revenue</path>
+    <page_callback>CRM_Crs_Form_RevenueSharingEvent</page_callback>
+    <title>Revenue Sharing</title>
     <access_arguments>access CiviCRM</access_arguments>
   </item>
 </menu>
