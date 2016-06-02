@@ -229,3 +229,5 @@
     {/if}
 </div>
 {include file="CRM/common/showHide.tpl"}
+
+{include file="CRM/Crs/process-warn.tpl"}

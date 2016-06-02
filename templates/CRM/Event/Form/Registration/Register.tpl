@@ -433,3 +433,5 @@
 
 </script>
 {/literal}
+
+{include file="CRM/Crs/process-warn.tpl"}

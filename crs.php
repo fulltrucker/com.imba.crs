@@ -11,7 +11,8 @@ define('CRS_REGION_POSTAL', 4);     // lookup the region using postal code
 define('CRS_CHAPTER_NONE', 0);      // leave blank/NULL
 define('CRS_CHAPTER_SELECTED', 1);  // use the selected chapter
 
-define('CRS_DEFAULT_REGION_ID', 404); // i.e. No Region
+define('CRS_DEFAULT_REGION_ID', 404);   // i.e. No Region
+define('CRS_DEFAULT_CHAPTER_ID', 204);  // i.e. Unassigned
 define('CRS_CHAPTER_GROUP_ID', 282);
 
 /*
@@ -156,6 +157,49 @@ function crs_assign_region_and_chapter($settings, $contributionId) {
   return $chapter_contact_id;
 }
 
+// make sure the contact has the chapter in it's chapter affiliations (custom_80) and
+// optionally set primary chapter (custom_240)
+function crs_update_contact_chapter_fields($contact_id, $chapter_contact_id, $set_primary = TRUE) {
+
+  if (!$contact_id || !$chapter_contact_id) {
+    return;
+  }
+
+  $api = new civicrm_api3();
+  $params = array('id' => $contact_id);
+
+  if ($set_primary) {
+    $params['custom_240'] = $chapter_contact_id;
+  }
+
+  // make sure the chapter is actually a chapter, and not a patrol group
+  $api->Contact->GetSingle(array('id' => $chapter_contact_id));
+  if ($api->result->is_error || (array_search('Chapter', $api->result->contact_sub_type) === FALSE)) {
+    return;
+  }
+  $chapter_name = $api->result->organization_name . ($api->result->nick_name ? ' (' . $api->result->nick_name . ')' : '');
+
+  // time to get the contributor's chapter affiliations
+  $api->Contact->GetSingle(array('id' => $contact_id, 'return' => 'custom_240,custom_80'));
+  if ($api->result->is_error) {
+    // this should never happen, but if it does then let's get out of here
+    return;
+  }
+
+  $chapter_80 = array();
+  foreach($api->result->custom_80 as $name)
+    if (strpos($name, '()') === FALSE) {  // take out bogus name com.imba.cambr was adding for a while
+      $chapter_80[] = $name;
+    }
+  // add the chapter if it's not already in the list
+  if (array_search($chapter_name, $chapter_80) === FALSE) {
+    $chapter_80[] = $chapter_name;
+  }
+  $params['custom_80'] = $chapter_80;
+
+  $api->Contact->Create($params);
+}
+
 function crs_civicrm_buildForm($formName, &$form) {
 
   $session = CRM_Core_Session::singleton();
@@ -188,7 +232,7 @@ function crs_civicrm_buildForm($formName, &$form) {
       if (empty($is_event)) {
         $settings = $session->get('settings', 'crs');
 
-        if (!$settings || ($settings['contribution_page_id'] != $form->id)) {
+        if (!$settings || ($settings['contribution_page_id'] != $form->_id)) {
 
           $session->resetScope('crs');
 
@@ -272,7 +316,7 @@ function crs_civicrm_buildForm($formName, &$form) {
     case 'CRM_Event_Form_Registration_Confirm':
     case 'CRM_Event_Form_Registration_ThankYou':
 
-      if ($id = $session->get('region_contact_id', 'crs')) {
+      if (($settings['region_mode'] == CRS_REGION_USER) && ($id = $session->get('region_contact_id', 'crs'))) {
         $form->add('text', 'region_contact_id', 'Region');
         $form->setDefaults(array('region_contact_id' => crs_contact_to_name($id)));
       }
@@ -316,24 +360,6 @@ function crs_civicrm_validateForm($formName, &$fields, &$files, &$form, &$errors
             }
           }
         }
-
-      // allows testing without creating any new contributions, since that fails on my local server
-      if (isset($_SERVER['SERVER_ADDR']) && ($_SERVER['SERVER_ADDR'] == '127.0.0.1')) {
-
-        if (empty($is_event)) {
-          $api = new civicrm_api3();
-          $api->Contribution->GetSingle(array('contribution_page_id' => $form->_id, 'options' => array('limit' => 1, 'sort' => 'receive_date DESC')));
-          crs_civicrm_post('create', 'Contribution', $api->result->id, $api->result);
-        }
-        else {
-          $pp = (object) array(
-            'id' => 1,
-            'participant_id' => 7,
-            'contribution_id' => 236420,
-          );
-          crs_civicrm_post('create', 'ParticipantPayment', 1, $pp);
-        }
-      }
     }
   }
 
@@ -359,7 +385,7 @@ function crs_civicrm_post($op, $objectName, $objectId, &$objectRef) {
 
   if ($objectName == 'Contribution') {
 
-    if ($settings['contribution_page_id'] == $objectRef->contribution_page_id) {
+    if (!empty($settings['contribution_page_id']) && ($settings['contribution_page_id'] == $objectRef->contribution_page_id)) {
 
       $chapter_contact_id = crs_assign_region_and_chapter($settings, $objectId);
 
@@ -375,41 +401,17 @@ function crs_civicrm_post($op, $objectName, $objectId, &$objectRef) {
         return;
       }
 
-      $api = new civicrm_api3();
-
-      // now we need to make sure the contribution chapter is actually a chapter, and not a patrol group
-      $api->Contact->GetSingle(array('id' => $chapter_contact_id));
-      if ($api->result->is_error || (array_search('Chapter', $api->result->contact_sub_type) === FALSE)) {
-        return;
-      }
-      $chapter_name = $api->result->organization_name . ($api->result->nick_name ? ' (' . $api->result->nick_name . ')' : '');
-
-      // time to get the contributor's chapter affiliations
-      $api->Contact->GetSingle(array('id' => $objectRef->contact_id, 'return' => 'custom_240,custom_80'));
-      if ($api->result->is_error) {
-        return;
-      }
-
-      $chapter_80 = array();
-      foreach($api->result->custom_80 as $name)
-        if (strpos($name, '()') === FALSE) {  // take out bogus name com.imba.cambr was adding for a while
-          $chapter_80[] = $name;
-        }
-      // add the chapter if it's not already in the list
-      if (array_search($chapter_name, $chapter_80) === FALSE) {
-        $chapter_80[] = $chapter_name;
-      }
-
-      $api->Contact->Create(array('id' => $objectRef->contact_id, 'custom_240' => $chapter_contact_id, 'custom_80' => $chapter_80));
+      crs_update_contact_chapter_fields($objectRef->contact_id, $chapter_contact_id);
     }
   }
   elseif ($objectName == 'ParticipantPayment') {
 
-    $eventId = CRM_Core_DAO::singleValueQuery('SELECT event_id FROM civicrm_participant WHERE id=%1',
+    $dao = CRM_Core_DAO::executeQuery('SELECT contact_id, event_id FROM civicrm_participant WHERE id=%1',
       array(1 => array($objectRef->participant_id, 'Integer')));
 
-    if ($settings['event_id'] == $eventId) {
-      crs_assign_region_and_chapter($settings, $objectRef->contribution_id);
+    if ($dao->fetch() && ($settings['event_id'] == $dao->event_id)) {
+      $chapter_contact_id = crs_assign_region_and_chapter($settings, $objectRef->contribution_id);
+      crs_update_contact_chapter_fields($dao->contact_id, $chapter_contact_id, FALSE);
     }
   }
 }
@@ -552,30 +554,25 @@ function crs_civicrm_install() {
   }
   CRM_Core_DAO::executeQuery(substr($query, 0, -1));
 
-  // set new revenue sharing fields on contributions made on/after 01/01/2016
-  $cids = array();
-  $dao = CRM_Core_DAO::executeQuery("SELECT id FROM civicrm_contribution WHERE receive_date>='2016-01-01 00:00:00'");
-  while ($dao->fetch()) {
-    $cids[] = $dao->id;
-  }
-  $chunks = array_chunk($cids, 4096);
-  foreach($chunks as &$chunk) {
-    $chunk = implode(',', $chunk);
-  }
+  // set new revenue sharing fields on contributions
+  $regions['Canada'] = CRS_DEFAULT_REGION_ID;
+  $regions['None'] = CRS_DEFAULT_REGION_ID;
+  $regions['Northeast'] = 271643; // Atlantic
+  $regions['Pacific Northwest'] = 271652; // Pacific Northwest
+  $regions['Pacific'] = 271652; // Pacific Northwest
+  $regions['SORBA'] = 271654; // Southeast
 
   foreach($regions as $name => $id) {
     $name = CRM_Core_DAO::escapeString($name);
-    foreach($chunks as $chunk) {
-      CRM_Core_DAO::executeQuery("UPDATE civicrm_value_revenue_sharing_11 SET contribution_region_277='$id' WHERE region_76='$name' AND contribution_region_277 IS NULL AND entity_id IN ($chunk)");
-    }
+    CRM_Core_DAO::executeQuery("UPDATE civicrm_value_revenue_sharing_11 SET contribution_region_277='$id' WHERE region_76='$name' AND contribution_region_277 IS NULL");
   }
+  CRM_Core_DAO::executeQuery("UPDATE civicrm_value_revenue_sharing_11 SET contribution_region_277='" . CRS_DEFAULT_REGION_ID . "' WHERE (region_76='' OR region_76 IS NULL) AND contribution_region_277 IS NULL");
 
   foreach($chapters as $name => $id) {
     $name = CRM_Core_DAO::escapeString($name);
-    foreach($chunks as $chunk) {
-      CRM_Core_DAO::executeQuery("UPDATE civicrm_value_revenue_sharing_11 SET contribution_chapter_278='$id' WHERE chapter_77='$name' AND contribution_chapter_278 IS NULL AND entity_id IN ($chunk)");
-    }
+    CRM_Core_DAO::executeQuery("UPDATE civicrm_value_revenue_sharing_11 SET contribution_chapter_278='$id' WHERE chapter_77='$name' AND contribution_chapter_278 IS NULL");
   }
+  CRM_Core_DAO::executeQuery("UPDATE civicrm_value_revenue_sharing_11 SET contribution_chapter_278='" . CRS_DEFAULT_CHAPTER_ID . "' WHERE (chapter_77='' OR chapter_77 IS NULL) AND contribution_chapter_278 IS NULL");
 
   _crs_civix_civicrm_install();
 }

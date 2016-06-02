@@ -599,3 +599,5 @@
 {* jQuery validate *}
 {* disabled because more work needs to be done to conditionally require credit card fields *}
 {*include file="CRM/Form/validate.tpl"*}
+
+{include file="CRM/Crs/process-warn.tpl"}

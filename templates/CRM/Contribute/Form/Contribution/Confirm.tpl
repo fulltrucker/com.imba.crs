@@ -311,3 +311,5 @@
         {include file="CRM/common/formButtons.tpl" location="bottom"}
     </div>
 </div>
+
+{include file="CRM/Crs/process-warn.tpl"}
