@@ -12,7 +12,7 @@ define('CRS_CHAPTER_NONE', 0);      // leave blank/NULL
 define('CRS_CHAPTER_SELECTED', 1);  // use the selected chapter
 
 define('CRS_DEFAULT_REGION_ID', 404);   // i.e. No Region
-define('CRS_DEFAULT_CHAPTER_ID', 204);  // i.e. Unassigned
+define('CRS_DEFAULT_CHAPTER_ID', 100);  // i.e. Unassigned
 define('CRS_CHAPTER_GROUP_ID', 282);
 
 /*
@@ -287,7 +287,9 @@ function crs_civicrm_buildForm($formName, &$form) {
             // NOP
           }
           elseif ($name = CRM_Utils_Array::value('custom_76', $_GET)) {
-            $id = crs_region_name_to_contact($name);
+            if (!function_exists('civitracker_civicrm_buildForm')) {
+              $id = crs_region_name_to_contact($name);
+            }
           }
           if (!empty($id)) {
             $form->add('hidden', 'region_contact_id', $id);
@@ -301,7 +303,9 @@ function crs_civicrm_buildForm($formName, &$form) {
             // NOP
           }
           elseif ($name = CRM_Utils_Array::value('custom_77', $_GET)) {
-            $id = crs_chapter_name_to_contact($name);
+            if (!function_exists('civitracker_civicrm_buildForm')) {
+              $id = crs_chapter_name_to_contact($name);
+            }
           }
           if (!empty($id)) {
             $form->add('hidden', 'chapter_contact_id', $id);
