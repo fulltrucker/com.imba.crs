@@ -316,16 +316,16 @@ function crs_civicrm_buildForm($formName, &$form) {
     case 'CRM_Event_Form_Registration_Confirm':
     case 'CRM_Event_Form_Registration_ThankYou':
 
+      $settings = $session->get('settings', 'crs');
+
       if (($settings['region_mode'] == CRS_REGION_USER) && ($id = $session->get('region_contact_id', 'crs'))) {
         $form->add('text', 'region_contact_id', 'Region');
         $form->setDefaults(array('region_contact_id' => crs_contact_to_name($id)));
       }
-
       break;
 
     default:
       $session->resetScope('crs');
-
       break;
   }
 
