@@ -235,6 +235,8 @@
       </div>
     {/if}
   </div>
+  {include file="CRM/Crs/process-warn.tpl"}
+
   <script type="text/javascript">
     {literal}
     function toggleConfirmButton() {
@@ -433,5 +435,3 @@
 
 </script>
 {/literal}
-
-{include file="CRM/Crs/process-warn.tpl"}

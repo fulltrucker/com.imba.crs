@@ -255,7 +255,7 @@
           lookup_table: {/literal}{$lookup_table}{literal},
 
           init: function() {
-            this.postal_code = $('input[name^="postal_code"]');
+            this.postal_code = CRM.$('input[name^="postal_code"]');
             this.region_contact_id = CRM.$('#region_contact_id');
             this.postal_code.blur(function() { crs.postal_blur(); });
             this.postal_blur();
@@ -377,6 +377,8 @@
   </div>
   {/if}
 </div>
+
+{include file="CRM/Crs/process-warn.tpl"}
 
 <script type="text/javascript">
   {if $isHonor}
@@ -604,5 +606,3 @@
 {* jQuery validate *}
 {* disabled because more work needs to be done to conditionally require credit card fields *}
 {*include file="CRM/Form/validate.tpl"*}
-
-{include file="CRM/Crs/process-warn.tpl"}
