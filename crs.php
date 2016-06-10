@@ -12,7 +12,7 @@ define('CRS_CHAPTER_NONE', 0);      // leave blank/NULL
 define('CRS_CHAPTER_SELECTED', 1);  // use the selected chapter
 
 define('CRS_DEFAULT_REGION_ID', 404);   // i.e. No Region
-define('CRS_DEFAULT_CHAPTER_ID', 100);  // i.e. Unassigned
+define('CRS_DEFAULT_CHAPTER_ID', 204);  // i.e. Unassigned
 define('CRS_CHAPTER_GROUP_ID', 282);
 
 /*
@@ -227,6 +227,8 @@ function crs_civicrm_buildForm($formName, &$form) {
       }
       $is_event = TRUE;
 
+      // fall through to next case
+
     case 'CRM_Contribute_Form_Contribution_Main':
 
       if (empty($is_event)) {
@@ -287,9 +289,7 @@ function crs_civicrm_buildForm($formName, &$form) {
             // NOP
           }
           elseif ($name = CRM_Utils_Array::value('custom_76', $_GET)) {
-            if (!function_exists('civitracker_civicrm_buildForm')) {
-              $id = crs_region_name_to_contact($name);
-            }
+            $id = crs_region_name_to_contact($name);
           }
           if (!empty($id)) {
             $form->add('hidden', 'region_contact_id', $id);
@@ -303,9 +303,7 @@ function crs_civicrm_buildForm($formName, &$form) {
             // NOP
           }
           elseif ($name = CRM_Utils_Array::value('custom_77', $_GET)) {
-            if (!function_exists('civitracker_civicrm_buildForm')) {
-              $id = crs_chapter_name_to_contact($name);
-            }
+            $id = crs_chapter_name_to_contact($name);
           }
           if (!empty($id)) {
             $form->add('hidden', 'chapter_contact_id', $id);
@@ -510,7 +508,13 @@ function crs_civicrm_install() {
     CONSTRAINT `civicrm_event_revenue_sharing_ibfk_3` FOREIGN KEY (`event_id`) REFERENCES `civicrm_event` (`id`) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8;");
 
-  $chapters = array();
+  $chapters = array(
+    'At Large' => 204,
+    'Unassigned' => 204,
+    'CSRA SORBA' => 210555,
+    'GROC' => 226875,
+    'Rockford Area Mountain Biking Alliance (RAMBA)' => 411577,
+  );
 
   try {
     $result = civicrm_api3('Contact', 'get', array(
