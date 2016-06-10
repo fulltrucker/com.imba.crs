@@ -52,12 +52,48 @@
 
 <script type="text/javascript">
 
-  var submitOnceCRS = submitOnce;
+  CRM.$(function($) {
 
-  submitOnce = function() {
-    CRM.$('#process-warning').css('display', 'block');
-    return submitOnceCRS.apply(this, arguments);
-  }
+    var sb;
+
+    sb = CRM.$('input[name="_qf_Main_upload"]');
+    if (typeof(sb.prop('onclick')) == 'function') {
+      sb.prop('onclick', null)
+        .attr('type', 'button')
+        .one('click', function() {
+          CRM.$('#process-warning').css('display', 'block');
+          CRM.$(this).val('Processing...').attr('disabled', true);
+          setTimeout(function() {
+            CRM.$('#Main').submit();
+          }, 1000);
+        });
+    }
+    sb = CRM.$('input[name="_qf_Confirm_next"]');
+    if (typeof(sb.prop('onclick')) == 'function') {
+      sb.prop('onclick', null)
+        .attr('type', 'button')
+        .one('click', function() {
+          CRM.$('#process-warning').css('display', 'block');
+          CRM.$(this).val('Processing...').attr('disabled', true);
+          setTimeout(function() {
+            CRM.$('#Confirm').submit();
+          }, 1000);
+        });
+    }
+    sb = CRM.$('input[name="_qf_Register_upload"]');
+    if (typeof(sb.prop('onclick')) == 'function') {
+      sb.prop('onclick', null)
+        .attr('type', 'button')
+        .one('click', function() {
+          CRM.$('#process-warning').css('display', 'block');
+          CRM.$(this).val('Processing...').attr('disabled', true);
+          setTimeout(function() {
+            CRM.$('#Register').submit();
+          }, 1000);
+        });
+    }
+
+  });
 
 </script>
 
