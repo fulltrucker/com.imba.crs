@@ -185,15 +185,21 @@ function crs_update_contact_chapter_fields($contact_id, $chapter_contact_id, $se
     // this should never happen, but if it does then let's get out of here
     return;
   }
+  elseif (is_string($api->result->custom_80)) {
+    $api->result->custom_80 = (array) $api->result->custom_80;
+  }
 
   $chapter_80 = array();
-  foreach($api->result->custom_80 as $name)
+  foreach($api->result->custom_80 as $name) {
     if (strpos($name, '()') === FALSE) {  // take out bogus name com.imba.cambr was adding for a while
       $chapter_80[] = $name;
     }
-  // add the chapter if it's not already in the list
-  if (array_search($chapter_name, $chapter_80) === FALSE) {
-    $chapter_80[] = $chapter_name;
+  }
+  if ($chapter_contact_id != CRS_DEFAULT_CHAPTER_ID) {
+    // add the chapter if it's not already in the list
+    if (array_search($chapter_name, $chapter_80) === FALSE) {
+      $chapter_80[] = $chapter_name;
+    }
   }
   $params['custom_80'] = $chapter_80;
 
