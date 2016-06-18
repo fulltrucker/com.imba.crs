@@ -166,44 +166,46 @@ function crs_update_contact_chapter_fields($contact_id, $chapter_contact_id, $se
   }
 
   $api = new civicrm_api3();
-  $params = array('id' => $contact_id);
+  $params = array();
 
   if ($set_primary) {
     $params['custom_240'] = $chapter_contact_id;
   }
 
-  // make sure the chapter is actually a chapter, and not a patrol group
-  $api->Contact->GetSingle(array('id' => $chapter_contact_id));
-  if ($api->result->is_error || (array_search('Chapter', $api->result->contact_sub_type) === FALSE)) {
-    return;
-  }
-  $chapter_name = $api->result->organization_name . ($api->result->nick_name ? ' (' . $api->result->nick_name . ')' : '');
-
-  // time to get the contributor's chapter affiliations
-  $api->Contact->GetSingle(array('id' => $contact_id, 'return' => 'custom_240,custom_80'));
-  if ($api->result->is_error) {
-    // this should never happen, but if it does then let's get out of here
-    return;
-  }
-  elseif (is_string($api->result->custom_80)) {
-    $api->result->custom_80 = (array) $api->result->custom_80;
-  }
-
-  $chapter_80 = array();
-  foreach($api->result->custom_80 as $name) {
-    if (strpos($name, '()') === FALSE) {  // take out bogus name com.imba.cambr was adding for a while
-      $chapter_80[] = $name;
-    }
-  }
   if ($chapter_contact_id != CRS_DEFAULT_CHAPTER_ID) {
-    // add the chapter if it's not already in the list
-    if (array_search($chapter_name, $chapter_80) === FALSE) {
-      $chapter_80[] = $chapter_name;
+    // get the chapter affiliation value from the chapter contact record
+    $api->Contact->GetSingle(array('id' => $chapter_contact_id, 'return' => 'custom_80'));
+    if ($api->result->is_error) {
+      return;
+    }
+    $chapter_name = is_array($api->result->custom_80) ? array_shift($api->result->custom_80) : $api->result->custom_80;
+
+    if ($chapter_name) {
+      $chapter_80 = array();
+
+      // get the contributor's chapter affiliations
+      $api->Contact->GetSingle(array('id' => $contact_id, 'return' => 'custom_80'));
+      if ($api->result->is_error) {
+        return;
+      }
+      $chapters = is_array($api->result->custom_80) ? $api->result->custom_80: (array) $api->result->custom_80;
+
+      foreach($chapters as $chapter) {
+        if (strpos($chapter, '()') === FALSE) {  // take out bogus name com.imba.cambr was adding for a while
+          $chapter_80[] = $chapter;
+        }
+      }
+      // add the chapter if it's not already in the list
+      if (array_search($chapter_name, $chapter_80) === FALSE) {
+        $chapter_80[] = $chapter_name;
+      }
+      $params['custom_80'] = $chapter_80;
     }
   }
-  $params['custom_80'] = $chapter_80;
-
-  $api->Contact->Create($params);
+  if (!empty($params)) {
+    $params['id'] = $contact_id;
+    $api->Contact->Create($params);
+  }
 }
 
 function crs_civicrm_buildForm($formName, &$form) {
