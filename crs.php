@@ -10,6 +10,7 @@ define('CRS_REGION_POSTAL', 4);     // lookup the region using postal code
 
 define('CRS_CHAPTER_NONE', 0);      // leave blank/NULL
 define('CRS_CHAPTER_SELECTED', 1);  // use the selected chapter
+define('CRS_CHAPTER_USER', 2);      // let the user choose
 
 define('CRS_DEFAULT_REGION_ID', 404);   // i.e. No Region
 define('CRS_DEFAULT_CHAPTER_ID', 204);  // i.e. Unassigned
@@ -141,12 +142,14 @@ function crs_assign_region_and_chapter($settings, $contributionId) {
   switch ($settings['chapter_mode']) {
     
     case CRS_CHAPTER_NONE:
+    case CRS_CHAPTER_USER:
       $chapter_contact_id = $session->get('chapter_contact_id', 'crs');
       break;
 
     case CRS_CHAPTER_SELECTED:
       $chapter_contact_id = $settings['chapter_contact_id'];
       break;
+
   }
   $api->CustomValue->Create(array('entity_id' => $contributionId, 'custom_278' => $chapter_contact_id));
 
@@ -304,15 +307,39 @@ function crs_civicrm_buildForm($formName, &$form) {
           }
         }
 
-        // chapter can be passed in the URL for mode "leave blank / NULL"
-        if ($settings['chapter_mode'] == CRS_CHAPTER_NONE) {
+        // potentially get chapter from the URL
+        if ($id = CRM_Utils_Array::value('chapter', $_GET)) {
+          // NOP
+        }
+        elseif ($name = CRM_Utils_Array::value('custom_77', $_GET)) {
+          $id = crs_chapter_name_to_contact($name);
+        }
 
-          if ($id = CRM_Utils_Array::value('chapter', $_GET)) {
-            // NOP
+        if ($settings['chapter_mode'] == CRS_CHAPTER_USER) {
+          $options = array();
+          $result = civicrm_api3('Contact', 'get', array(
+            'filter.group_id' => array(
+              '0' => CRS_CHAPTER_GROUP_ID,
+            ),
+            'options' => array(
+              'limit' => 0,
+            ),
+            'return' => 'id, organization_name, nick_name',
+          ));
+          foreach($result['values'] as $chapter) {
+            $name = $chapter['organization_name'];
+            if (!empty($chapter['nick_name'])) {
+              $name .= " ({$chapter['nick_name']})";
+            }
+            $options[$chapter['id']] = $name;
           }
-          elseif ($name = CRM_Utils_Array::value('custom_77', $_GET)) {
-            $id = crs_chapter_name_to_contact($name);
-          }
+          $form->addSelect('chapter_contact_id', array('label' => 'Chapter', 'options' => $options), TRUE);
+          $form->setDefaults(array('chapter_contact_id' => !empty($id) ? $id : CRS_DEFAULT_CHAPTER_ID));
+        }
+    
+        // chapter can be passed in the URL for mode "leave blank / NULL"
+        elseif ($settings['chapter_mode'] == CRS_CHAPTER_NONE) {
+
           if (!empty($id)) {
             $form->add('hidden', 'chapter_contact_id', $id);
           }
@@ -331,6 +358,10 @@ function crs_civicrm_buildForm($formName, &$form) {
       if (($settings['region_mode'] == CRS_REGION_USER) && ($id = $session->get('region_contact_id', 'crs'))) {
         $form->add('text', 'region_contact_id', 'Region');
         $form->setDefaults(array('region_contact_id' => crs_contact_to_name($id)));
+      }
+      if ($id = $session->get('chapter_contact_id', 'crs')) {
+        $form->add('text', 'chapter_contact_id', 'Chapter');
+        $form->setDefaults(array('chapter_contact_id' => crs_contact_to_name($id)));
       }
       break;
 

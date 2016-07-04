@@ -284,6 +284,24 @@
     {/literal}
   {/if}
 
+  {if $form.chapter_contact_id}
+    <fieldset class="crm-group">
+      <legend>Chapter Support</legend>
+      <div class="crm-section">
+        <div class="label"></div>
+        <div class="content">Please select the IMBA Chapter you would like your donation to support.</div>
+        <div class="clear"></div>
+        <div class="label">
+          {$form.chapter_contact_id.label}
+        </div>
+        <div class="content">
+          {$form.chapter_contact_id.html}
+        </div>
+      </div>
+      <div class="clear"></div>
+    </fieldset>
+  {/if}  
+
   {if $isHonor}
   <fieldset class="crm-public-form-item crm-group pcp-group">
     <div class="crm-public-form-item crm-section pcp-section">

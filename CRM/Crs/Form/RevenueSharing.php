@@ -22,6 +22,7 @@ class CRM_Crs_Form_RevenueSharing extends CRM_Contribute_Form_ContributionPage {
 
     $values = array(
       CRS_CHAPTER_NONE => 'Leave blank / NULL',
+      CRS_CHAPTER_USER => 'Let the contributor select',
       CRS_CHAPTER_SELECTED => '',
     );
     $this->addRadio('chapter_mode', ts('Chapter'), $values, array(), '<br />', TRUE);
