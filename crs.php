@@ -35,16 +35,28 @@ function crs_contact_to_name($id, $default = '') {
     return $name;
 }
 function crs_chapter_name_to_contact($name) {
-  if (!empty($name) && !is_numeric($name)) {
 
-    $api = new civicrm_api3();
-    if ($i = strpos($name, '('))
-      $name = substr($name, 0, $i);
-    $api->Contact->GetValue(array('contact_sub_type' => 'Chapter',
-                    'organization_name' => trim($name), 'return' => 'id'));
-    $name = is_string($api->result) ? $api->result : NULL;
+  $name = trim($name);
+  if ($i = strpos($name, '(')) {
+    $name = substr($name, 0, $i);
   }
-  return $name;
+
+  $result = civicrm_api3('Contact', 'get', array(
+    'filter.group_id' => array(
+      '0' => CRS_CHAPTER_GROUP_ID,
+    ),
+    'options' => array(
+      'limit' => 0,
+    ),
+    'sequential' => 1,
+    'organization_name' => $name,
+    'return' => 'id',
+  ));
+  if ($result['count'] > 0) {
+    return $result['values'][0]['id'];
+  }
+
+  return NULL;
 }
 function crs_region_name_to_contact($name) {
   if (!empty($name) && !is_numeric($name)) {
