@@ -41,20 +41,23 @@ function crs_chapter_name_to_contact($name) {
     $name = substr($name, 0, $i);
   }
 
-  $result = civicrm_api3('Contact', 'get', array(
-    'filter.group_id' => array(
-      '0' => CRS_CHAPTER_GROUP_ID,
-    ),
-    'options' => array(
-      'limit' => 0,
-    ),
-    'sequential' => 1,
-    'organization_name' => $name,
-    'return' => 'id',
-  ));
-  if ($result['count'] > 0) {
-    return $result['values'][0]['id'];
+  try {
+    $result = civicrm_api3('Contact', 'get', array(
+      'filter.group_id' => array(
+        '0' => CRS_CHAPTER_GROUP_ID,
+      ),
+      'options' => array(
+        'limit' => 0,
+      ),
+      'sequential' => 1,
+      'organization_name' => $name,
+      'return' => 'id',
+    ));
+    if ($result['count'] > 0) {
+      return $result['values'][0]['id'];
+    }
   }
+  catch (Exception $e) {}
 
   return NULL;
 }
@@ -329,22 +332,26 @@ function crs_civicrm_buildForm($formName, &$form) {
 
         if ($settings['chapter_mode'] == CRS_CHAPTER_USER) {
           $options = array();
-          $result = civicrm_api3('Contact', 'get', array(
-            'filter.group_id' => array(
-              '0' => CRS_CHAPTER_GROUP_ID,
-            ),
-            'options' => array(
-              'limit' => 0,
-            ),
-            'return' => 'id, organization_name, nick_name',
-          ));
-          foreach($result['values'] as $chapter) {
-            $name = $chapter['organization_name'];
-            if (!empty($chapter['nick_name'])) {
-              $name .= " ({$chapter['nick_name']})";
+          try {
+            $result = civicrm_api3('Contact', 'get', array(
+              'filter.group_id' => array(
+                '0' => CRS_CHAPTER_GROUP_ID,
+              ),
+              'options' => array(
+                'limit' => 0,
+              ),
+              'return' => 'id, organization_name, nick_name',
+            ));
+            foreach($result['values'] as $chapter) {
+              $name = $chapter['organization_name'];
+              if (!empty($chapter['nick_name'])) {
+                $name .= " ({$chapter['nick_name']})";
+              }
+              $options[$chapter['id']] = $name;
             }
-            $options[$chapter['id']] = $name;
           }
+          catch (Exception $e) {}
+          
           $form->addSelect('chapter_contact_id', array('label' => 'Chapter', 'options' => $options), TRUE);
           $form->setDefaults(array('chapter_contact_id' => !empty($id) ? $id : CRS_DEFAULT_CHAPTER_ID));
         }
