@@ -143,7 +143,7 @@ function crs_assign_region_and_chapter($settings, $contributionId) {
       $query = "SELECT region_contact_id FROM civicrm_regionfields_data WHERE postal_code=%1";
       // use billing postal code first
       if ($billing = $session->get('postal_code_billing', 'crs')) {
-        $region_contact_id = CRM_Core_DAO::singleValueQuery($query, array(1 => array($billing, 'String')) ?: NULL;
+        $region_contact_id = CRM_Core_DAO::singleValueQuery($query, array(1 => array($billing, 'String'))) ?: NULL;
       }
       // fall back to primary if not found
       if (!$region_contact_id) {
