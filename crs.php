@@ -43,9 +43,9 @@ function crs_chapter_name_to_contact($name) {
 
   try {
     $result = civicrm_api3('Contact', 'get', array(
-      'filter.group_id' => array(
-        '0' => CRS_CHAPTER_GROUP_ID,
-      ),
+      //'filter.group_id' => array(
+      //  '0' => CRS_CHAPTER_GROUP_ID,
+      //),
       'options' => array(
         'limit' => 0,
       ),
@@ -140,14 +140,14 @@ function crs_assign_region_and_chapter($settings, $contributionId) {
       break;
 
     case CRS_REGION_POSTAL:
-      $query = 'SELECT region_contact_id FROM civicrm_regionfields_data WHERE postal_code=';
+      $query = "SELECT region_contact_id FROM civicrm_regionfields_data WHERE postal_code=%1";
       // use billing postal code first
       if ($billing = $session->get('postal_code_billing', 'crs')) {
-        $region_contact_id = CRM_Core_DAO::singleValueQuery($query . $billing) ?: NULL;
+        $region_contact_id = CRM_Core_DAO::singleValueQuery($query, array(1 => array($billing, 'String')) ?: NULL;
       }
       // fall back to primary if not found
       if (!$region_contact_id) {
-        $region_contact_id = CRM_Core_DAO::singleValueQuery($query . $session->get('postal_code_primary', 'crs')) ?: NULL;
+        $region_contact_id = CRM_Core_DAO::singleValueQuery($query, array(1 => array($session->get('postal_code_primary', 'crs'), 'String'))) ?: NULL;
       }
       break;
   }
