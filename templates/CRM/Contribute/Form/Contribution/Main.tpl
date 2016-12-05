@@ -386,6 +386,10 @@
   {if $isCaptcha}
     {include file='CRM/common/ReCAPTCHA.tpl'}
   {/if}
+
+  {* IMP-316 digital membership *}
+  {crmRegion name="digital-membership"}{/crmRegion}
+
   <div id="crm-submit-buttons" class="crm-submit-buttons">
   {include file="CRM/common/formButtons.tpl" location="bottom"}
   </div>
