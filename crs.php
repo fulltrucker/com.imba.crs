@@ -264,16 +264,28 @@ function crs_civicrm_buildForm($formName, &$form) {
 
           $session->resetScope('crs');
 
-          $dao = new CRM_Crs_DAO_RevenueSharing();
-          $dao->contribution_page_id = $form->_id;
-          $dao->find(TRUE);
-
-          $settings = array();
-
-          if ($dao->id) {
-            CRM_Core_DAO::storeValues($dao, $settings);
-            $session->set('settings', $settings, 'crs');
+          // IMP-347 single dynamic contribution page
+          if ($chapter = $form->get('chapter')) {
+            $settings = array(
+              'contribution_page_id' => 1,
+              'region_mode' => CRS_REGION_SELECTED,
+              'chapter_mode' => CRS_CHAPTER_SELECTED,
+              'region_contact_id' => $chapter['custom_241'],
+              'chapter_contact_id' => $chapter['id'],
+            );
           }
+          else {
+            $dao = new CRM_Crs_DAO_RevenueSharing();
+            $dao->contribution_page_id = $form->_id;
+            $dao->find(TRUE);
+
+            $settings = array();
+
+            if ($dao->id) {
+              CRM_Core_DAO::storeValues($dao, $settings);
+            }
+          }
+          $session->set('settings', $settings, 'crs');
         }
       }
 
