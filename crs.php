@@ -146,8 +146,12 @@ function crs_assign_region_and_chapter($settings, $contributionId) {
         $region_contact_id = CRM_Core_DAO::singleValueQuery($query, array(1 => array($billing, 'String'))) ?: NULL;
       }
       // fall back to primary if not found
+      if (!$region_contact_id && $primary = $session->get('postal_code_primary', 'crs')) {
+        $region_contact_id = CRM_Core_DAO::singleValueQuery($query, array(1 => array($primary, 'String'))) ?: NULL;
+      }
+      // or default region if postal code is wonky (international are dying here)
       if (!$region_contact_id) {
-        $region_contact_id = CRM_Core_DAO::singleValueQuery($query, array(1 => array($session->get('postal_code_primary', 'crs'), 'String'))) ?: NULL;
+        $region_contact_id = CRS_DEFAULT_REGION_ID;
       }
       break;
   }
