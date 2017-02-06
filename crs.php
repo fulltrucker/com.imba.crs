@@ -271,7 +271,7 @@ function crs_civicrm_buildForm($formName, &$form) {
           // IMP-347 single dynamic contribution page
           if ($chapter = $form->get('chapter')) {
             $settings = array(
-              'contribution_page_id' => 1,
+              'contribution_page_id' => $form->_id,
               'region_mode' => CRS_REGION_SELECTED,
               'chapter_mode' => CRS_CHAPTER_SELECTED,
               'region_contact_id' => $chapter['custom_241'],
