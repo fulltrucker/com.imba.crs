@@ -214,6 +214,10 @@
   <div class="crm-public-form-item crm-section cms_user-section">
     {include file="CRM/common/CMSUser.tpl"}
   </div>
+
+  {* IMP-316 digital membership *}
+  {crmRegion name="digital-membership"}{/crmRegion}
+
   <div class="crm-public-form-item crm-section premium_block-section">
     {include file="CRM/Contribute/Form/Contribution/PremiumBlock.tpl" context="makeContribution"}
   </div>
@@ -386,9 +390,6 @@
   {if $isCaptcha}
     {include file='CRM/common/ReCAPTCHA.tpl'}
   {/if}
-
-  {* IMP-316 digital membership *}
-  {crmRegion name="digital-membership"}{/crmRegion}
 
   <div id="crm-submit-buttons" class="crm-submit-buttons">
   {include file="CRM/common/formButtons.tpl" location="bottom"}
