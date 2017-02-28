@@ -157,6 +157,18 @@ function crs_assign_region_and_chapter($settings, $contributionId) {
   }
   $api->CustomValue->Create(array('entity_id' => $contributionId, 'custom_277' => $region_contact_id));
 
+  if (CRM_Core_DAO::singleValueQuery('SELECT COUNT(*) FROM civicrm_custom_field WHERE id=76 AND is_active=1')) {
+    try {
+      $region_name = civicrm_api3('Contact', 'getvalue', array(
+        'id' => $region_contact_id,
+        'return' => 'display_name',
+      ));
+    }
+    catch (CiviCRM_API3_Exception $e) {
+      CRM_Core_Error::debug_log_message('com.imba.single: ' . $e->getMessage());
+    }
+  }
+
   // assign chapter
   switch ($settings['chapter_mode']) {
     
@@ -172,6 +184,38 @@ function crs_assign_region_and_chapter($settings, $contributionId) {
   }
   $api->CustomValue->Create(array('entity_id' => $contributionId, 'custom_278' => $chapter_contact_id));
 
+  if (CRM_Core_DAO::singleValueQuery('SELECT COUNT(*) FROM civicrm_custom_field WHERE id=77 AND is_active=1')) {
+    try {
+      $affiliations = civicrm_api3('Contact', 'getvalue', array(
+        'id' => $chapter_contact_id,
+        'return' => 'custom_80',
+      ));
+    }
+    catch (CiviCRM_API3_Exception $e) {
+      CRM_Core_Error::debug_log_message('com.imba.single: ' . $e->getMessage());
+    }
+  }
+
+  if (isset($region_name) && isset($affiliations)) {
+    register_shutdown_function(
+      function($id, $region, $chapter) {
+        try {
+          civicrm_api3('CustomValue', 'create', array(
+            'entity_id' => $id,
+            'custom_76' => $region,
+            'custom_77' => $chapter,
+          ));
+        }
+        catch (CiviCRM_API3_Exception $e) {
+          CRM_Core_Error::debug_log_message('com.imba.single: ' . $e->getMessage());
+        }
+      },
+      $contributionId,
+      !empty($region_name) ? $region_name : 'No Region',
+      $chapter_contact_id == CRS_DEFAULT_CHAPTER_ID ? 'Unassigned' : (!empty($affiliations) ? array_shift($affiliations) : 'Unassigned')
+    );
+  }
+  
   if (!isset($_SERVER['SERVER_ADDR']) || ($_SERVER['SERVER_ADDR'] != '127.0.0.1')) {
     $session->resetScope('crs');
   }
