@@ -165,7 +165,6 @@ function crs_assign_region_and_chapter($settings, $contributionId) {
       ));
     }
     catch (CiviCRM_API3_Exception $e) {
-      CRM_Core_Error::debug_log_message('com.imba.single: ' . $e->getMessage());
     }
   }
 
@@ -192,7 +191,6 @@ function crs_assign_region_and_chapter($settings, $contributionId) {
       ));
     }
     catch (CiviCRM_API3_Exception $e) {
-      CRM_Core_Error::debug_log_message('com.imba.single: ' . $e->getMessage());
     }
   }
 
@@ -207,7 +205,6 @@ function crs_assign_region_and_chapter($settings, $contributionId) {
           ));
         }
         catch (CiviCRM_API3_Exception $e) {
-          CRM_Core_Error::debug_log_message('com.imba.single: ' . $e->getMessage());
         }
       },
       $contributionId,
@@ -311,6 +308,8 @@ function crs_civicrm_buildForm($formName, &$form) {
         if (!$settings || ($settings['contribution_page_id'] != $form->_id)) {
 
           $session->resetScope('crs');
+
+          $ip = $_SERVER['REMOTE_ADDR'];
 
           // IMP-347 single dynamic contribution page
           if ($chapter = $form->get('chapter')) {
